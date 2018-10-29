@@ -16,8 +16,88 @@
   		<scope>test</scope>
   	</dependency>
   </dependencies>
+
   <properties>
   	<maven.compiler.source>1.8</maven.compiler.source>
   	<maven.compiler.target>1.8</maven.compiler.target>
+  	<jar-with-dependencies.mainClass>de.unkrig.autoauth.core.Main</jar-with-dependencies.mainClass>
+  	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+
+  <build>
+    <plugins>
+
+      <!-- Compile .java to .jar. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.6.1</version>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+        </configuration>
+      </plugin>
+
+      <!-- Generate executable .jar file ("*-jar-with-dependencies.jar"). -->
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.6</version>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <archive>
+            <manifest>
+              <mainClass>${jar-with-dependencies.mainClass}</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <id>make-jar-with-dependencies</id>
+            <phase>package</phase>
+            <goals><goal>single</goal></goals>
+          </execution>
+        </executions>
+        </plugin>
+
+        <!-- Generate MS WINDOWS executable from executable .jar file. -->
+        <plugin>
+          <groupId>com.akathist.maven.plugins.launch4j</groupId>
+          <artifactId>launch4j-maven-plugin</artifactId>
+          <version>1.7.12</version>
+          <executions>
+            <execution>
+              <id>attach-windows-exe</id>
+
+              <goals><goal>launch4j</goal></goals>
+
+              <configuration>
+                <headerType>console</headerType>
+                <outfile>target/${project.name}-${project.version}.exe</outfile>
+                <jar>target/${project.name}-${project.version}-jar-with-dependencies.jar</jar>
+                <errTitle>${project.name}</errTitle>
+                <classPath>
+                  <addDependencies>false</addDependencies>
+                  <mainClass>${jar-with-dependencies.mainClass}</mainClass>
+                </classPath>
+                <jre><minVersion>1.6.0</minVersion></jre>
+                <versionInfo>
+                  <fileVersion>0.0.0.0</fileVersion>
+                  <txtFileVersion>${project.version}</txtFileVersion>
+                  <fileDescription>${project.name}</fileDescription>
+                  <copyright>Copyright Arno Unkrig 2018. All rights reserved.</copyright>
+                  <productVersion>0.0.0.0</productVersion>
+                  <txtProductVersion>${project.version}</txtProductVersion>
+                  <productName>${project.name}</productName>
+                  <internalName>${project.name}</internalName>
+                  <originalFilename>${project.name}-${project.version}.exe</originalFilename>
+                  <languageIndex>0x0409</languageIndex>
+                </versionInfo>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+  </build>
 </project>
