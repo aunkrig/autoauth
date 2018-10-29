@@ -30,6 +30,9 @@ import de.unkrig.commons.net.http.HttpRequest.Method;
 import de.unkrig.commons.net.http.HttpResponse;
 import de.unkrig.commons.net.http.servlett.Servlett;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.commons.util.CommandLineOptions;
+import de.unkrig.commons.util.annotation.CommandLineOption;
+import de.unkrig.commons.util.annotation.CommandLineOption.Cardinality;
 import de.unkrig.commons.util.logging.formatter.PrintfFormatter;
 
 public
@@ -38,22 +41,50 @@ class Main {
 	public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
 	public static void
-	main(String[] args) throws IOException {
+	main(String[] args) throws IOException, Exception {
 
-		if (args.length >= 1 && "--debug".equals(args[0])) {
-			Logger l = Logger.getLogger("de");
-			l.setLevel(Level.FINEST);
-			l.setUseParentHandlers(false);
-			ConsoleHandler h = new ConsoleHandler();
-			h.setLevel(Level.FINEST);
-			h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
-			l.addHandler(h);
-		}
+		Main main = new Main();
+		args = CommandLineOptions.parse(args, main);
 
-		String                  targetHost    = "proxy.swm.de";
-		int                     targetPort    = 8080;
-		final InetSocketAddress targetAddress = new InetSocketAddress(targetHost, targetPort);
-		final String            proxyRealm    = "autoauth";
+		main.run();
+	}
+
+	@CommandLineOption public void
+	setDebug() {
+		Logger l = Logger.getLogger("de");
+		l.setLevel(Level.FINEST);
+		l.setUseParentHandlers(false);
+		ConsoleHandler h = new ConsoleHandler();
+		h.setLevel(Level.FINEST);
+		h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
+		l.addHandler(h);
+	}
+
+	@Nullable private InetAddress endpointAddress = null;
+	private int                   endpointPort    = -1;
+	@Nullable private InetAddress targetAddress   = null;
+	private int                   targetPort      = -1;
+	private String                prompt          = "autoauth";
+
+	@CommandLineOption() public void
+	setEndpointAddress(InetAddress value) { this.endpointAddress = value; }
+
+	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+	setEndpointPort(int value) { this.endpointPort = value; }
+
+	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+	setTargetAddress(InetAddress value) { this.targetAddress = value; }
+
+	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+	setTargetPort(int value) { this.targetPort = value; }
+
+	@CommandLineOption() public void
+	setPrompt(String value) { this.prompt = value; }
+
+	private void
+	run() throws Exception {
+
+		final InetSocketAddress targetAddress = new InetSocketAddress(this.targetAddress, this.targetPort);
 
 		Authenticator.setDefault(new CustomAuthenticator(
     		CustomAuthenticator.CacheMode.USER_NAMES_AND_PASSWORDS,
@@ -64,7 +95,7 @@ class Main {
             targetAddress.getAddress(),       // addr
             targetAddress.getPort(),          // port
             "http",                           // protocol
-            proxyRealm,                       // prompt
+            this.prompt,                      // prompt
             "basic",                          // scheme
             new URL("http://x"),              // url
             RequestorType.PROXY               // reqType
@@ -116,18 +147,10 @@ class Main {
 			}
         };
 
-        InetAddress interfacE;
-        {
-            String interfaceName = null;
-            interfacE = interfaceName == null ? null : InetAddress.getByName(interfaceName);
-        }
-
-        int port = 999;
-
 	    new TcpServer(
-            new InetSocketAddress(interfacE, port), // endpoint
-            0,                                      // backlog
-            cch                                     // clientConnectionHandler
+            new InetSocketAddress(this.endpointAddress, this.endpointPort), // endpoint
+            0,                                                              // backlog
+            cch                                                             // clientConnectionHandler
         ).run();
     }
 
