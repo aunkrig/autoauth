@@ -8,6 +8,7 @@ import java.net.URLConnection;
 import java.nio.charset.Charset;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import de.unkrig.commons.io.InputStreams;
@@ -18,7 +19,7 @@ class AutoAuthTest {
 	/**
 	 * This is not a headless test - AUTOAUTH must be correctly configured and running.
 	 */
-	@Test public void
+	@Test @Ignore public void
 	testHttp() throws Exception {
 
 		URLConnection conn = (
