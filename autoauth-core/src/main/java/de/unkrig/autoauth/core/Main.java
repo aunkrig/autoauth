@@ -38,58 +38,58 @@ import de.unkrig.commons.util.logging.formatter.PrintfFormatter;
 public
 class Main {
 
-	public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
+    public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
-	public static void
-	main(String[] args) throws IOException, Exception {
+    public static void
+    main(String[] args) throws IOException, Exception {
 
-		Main main = new Main();
-		args = CommandLineOptions.parse(args, main);
+        Main main = new Main();
+        args = CommandLineOptions.parse(args, main);
 
-		main.run();
-	}
+        main.run();
+    }
 
-	@CommandLineOption public void
-	setDebug() {
-		Logger l = Logger.getLogger("de");
-		l.setLevel(Level.FINEST);
-		l.setUseParentHandlers(false);
-		ConsoleHandler h = new ConsoleHandler();
-		h.setLevel(Level.FINEST);
-		h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
-		l.addHandler(h);
-	}
+    @CommandLineOption public void
+    setDebug() {
+        Logger l = Logger.getLogger("de");
+        l.setLevel(Level.FINEST);
+        l.setUseParentHandlers(false);
+        ConsoleHandler h = new ConsoleHandler();
+        h.setLevel(Level.FINEST);
+        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
+        l.addHandler(h);
+    }
 
-	@Nullable private InetAddress endpointAddress = null;
-	private int                   endpointPort    = -1;
-	@Nullable private InetAddress targetAddress   = null;
-	private int                   targetPort      = -1;
-	private String                prompt          = "autoauth";
+    @Nullable private InetAddress endpointAddress = null;
+    private int                   endpointPort    = -1;
+    @Nullable private InetAddress targetAddress   = null;
+    private int                   targetPort      = -1;
+    private String                prompt          = "autoauth";
 
-	@CommandLineOption() public void
-	setEndpointAddress(InetAddress value) { this.endpointAddress = value; }
+    @CommandLineOption() public void
+    setEndpointAddress(InetAddress value) { this.endpointAddress = value; }
 
-	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-	setEndpointPort(int value) { this.endpointPort = value; }
+    @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+    setEndpointPort(int value) { this.endpointPort = value; }
 
-	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-	setTargetAddress(InetAddress value) { this.targetAddress = value; }
+    @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+    setTargetAddress(InetAddress value) { this.targetAddress = value; }
 
-	@CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-	setTargetPort(int value) { this.targetPort = value; }
+    @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+    setTargetPort(int value) { this.targetPort = value; }
 
-	@CommandLineOption() public void
-	setPrompt(String value) { this.prompt = value; }
+    @CommandLineOption() public void
+    setPrompt(String value) { this.prompt = value; }
 
-	private void
-	run() throws Exception {
+    private void
+    run() throws Exception {
 
-		final InetSocketAddress targetAddress = new InetSocketAddress(this.targetAddress, this.targetPort);
+        final InetSocketAddress targetAddress = new InetSocketAddress(this.targetAddress, this.targetPort);
 
-		Authenticator.setDefault(new CustomAuthenticator(
-    		CustomAuthenticator.CacheMode.USER_NAMES_AND_PASSWORDS,
-    		CustomAuthenticator.StoreMode.USER_NAMES_AND_PASSWORDS
-		));
+        Authenticator.setDefault(new CustomAuthenticator(
+            CustomAuthenticator.CacheMode.USER_NAMES_AND_PASSWORDS,
+            CustomAuthenticator.StoreMode.USER_NAMES_AND_PASSWORDS
+        ));
         String proxyAuthorization = basicCredentials(Authenticator.requestPasswordAuthentication(
             targetAddress.getHostName(),      // host
             targetAddress.getAddress(),       // addr
@@ -105,76 +105,76 @@ class Main {
         // informed when a new connection is accepted, and then create a connection to the proxy.
         ConnectionHandler cch = new ConnectionHandler() {
 
-			@Override public void
-			handleConnection(
-				InputStream       in,
-				OutputStream      out,
-				InetSocketAddress localSocketAddress,
-				InetSocketAddress remoteSocketAddress,
-				Stoppable         stoppable
-			) throws Exception {
+            @Override public void
+            handleConnection(
+                InputStream       in,
+                OutputStream      out,
+                InetSocketAddress localSocketAddress,
+                InetSocketAddress remoteSocketAddress,
+                Stoppable         stoppable
+            ) throws Exception {
 
-	            LOGGER.fine(
-	                "" // this.loggingPrefix
-	                + "S<< Connecting to server '"
-	                + targetAddress
-	                + "' -- '"
-	                + targetAddress
-	                + "'"
-	            );
-	            final TcpClient tcpClient = new TcpClient(targetAddress.getAddress(), targetAddress.getPort());
+                LOGGER.fine(
+                    ""
+                    + "S<< Connecting to server '"
+                    + targetAddress
+                    + "' -- '"
+                    + targetAddress
+                    + "'"
+                );
+                final TcpClient tcpClient = new TcpClient(targetAddress.getAddress(), targetAddress.getPort());
 
-				new HttpClientConnectionHandler(
-					new Servlett() {
+                new HttpClientConnectionHandler(
+                    new Servlett() {
 
-						public void
-						close() throws IOException {
-							;
-						}
+                        public void
+                        close() throws IOException {
+                            ;
+                        }
 
-						public HttpResponse
-						handleRequest(
-							HttpRequest                                    httpRequest,
-							ConsumerWhichThrows<HttpResponse, IOException> sendProvisionalResponse
-						) throws IOException {
+                        public HttpResponse
+                        handleRequest(
+                            HttpRequest                                    httpRequest,
+                            ConsumerWhichThrows<HttpResponse, IOException> sendProvisionalResponse
+                        ) throws IOException {
 
-				            httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
+                            httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
 
-				            return Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
-						}
-					}
-				).handleConnection(in, out, localSocketAddress, remoteSocketAddress, stoppable);
-			}
+                            return Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                        }
+                    }
+                ).handleConnection(in, out, localSocketAddress, remoteSocketAddress, stoppable);
+            }
         };
 
-	    new TcpServer(
+        new TcpServer(
             new InetSocketAddress(this.endpointAddress, this.endpointPort), // endpoint
             0,                                                              // backlog
             cch                                                             // clientConnectionHandler
         ).run();
     }
 
-	/**
+    /**
      * Submits the <var>httpRequest</var> to the <var>targetAddress</var>, passes any provisional responses (100...199)
      * to <var>sendProvisionalResponse</var>, and returns the non-provisional (200+) response.
      */
     private static HttpResponse
     processRequest(
-		TcpClient                                      tcpClient,
+        TcpClient                                      tcpClient,
         final HttpRequest                              httpRequest,
         ConsumerWhichThrows<HttpResponse, IOException> sendProvisionalResponse
     ) throws IOException {
 
-        LOGGER.fine(""/*this.loggingPrefix*/ + "S<< Sending request to remote proxy");
+        LOGGER.fine("S<< Sending request to remote proxy");
         ThreadUtil.runInBackground(new RunnableWhichThrows<IOException>() {
 
             @Override public void
             run() throws IOException {
                 try {
-                    httpRequest.write(tcpClient.getOutputStream(), /*HttpClient.this.loggingPrefix +*/ "S<< ");
+                    httpRequest.write(tcpClient.getOutputStream(), "S<< ");
                     tcpClient.getOutputStream().flush();
                 } catch (SocketException se) {
-                    LOGGER.fine(/*HttpClient.this.loggingPrefix +*/ "S<< " + se);
+                    LOGGER.fine("S<< " + se);
                 }
             }
         }, Thread.currentThread().getName() + "-request");
@@ -183,18 +183,17 @@ class Main {
         // zero or more "provisional" responses (status codes 1XX), then ONE "final" response.
         for (;;) {
 
-            LOGGER.fine(/*this.loggingPrefix +*/ "S>> Reading response from remote server");
+            LOGGER.fine("S>> Reading response from remote server");
 
             HttpResponse httpResponse = HttpResponse.read(
-			    tcpClient.getInputStream(),
-			    httpRequest.getHttpVersion(),
-			    httpRequest.getMethod() == Method.HEAD,
-			    /*this.loggingPrefix +*/ "S>> "
-			);
+                tcpClient.getInputStream(),
+                httpRequest.getHttpVersion(),
+                httpRequest.getMethod() == Method.HEAD,
+                "S>> "
+            );
 
             LOGGER.fine(
-                /*this.loggingPrefix
-                +*/ httpRequest.getMethod()
+                httpRequest.getMethod()
                 + " "
                 + httpRequest.getUri()
                 + " => "
