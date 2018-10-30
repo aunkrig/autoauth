@@ -16,6 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import de.unkrig.commons.io.IoUtil;
+import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.lang.ThreadUtil;
 import de.unkrig.commons.lang.java6.Base64;
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
@@ -224,6 +225,8 @@ class Main {
                     tcpClient.getOutputStream().flush();
                 } catch (SocketException se) {
                     LOGGER.fine("S<< " + se);
+                } catch (IOException ioe) {
+                    throw ExceptionUtil.wrap("Sending request to remote proxy", ioe);
                 }
             }
         }, Thread.currentThread().getName() + "-request");
