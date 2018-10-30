@@ -5,6 +5,22 @@
   <artifactId>autoauth-core</artifactId>
   <version>0.1.1</version>
 
+  <name>AUTOAUTH</name>
+  <description>An HTTP proxy that handles HTTP proxy authentication over another HTTP proxy.</description>
+  <url>https://github.com/aunkrig/autoauth/</url>
+  <scm>
+  	<url>https://github.com/aunkrig/autoauth</url>
+  </scm>
+  <licenses>
+    <license><url>https://github.com/aunkrig/autoauth/blob/master/LICENSE</url></license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Arno Unkrig</name>
+      <organizationUrl>https://unkrig.de</organizationUrl>
+    </developer>
+  </developers>
+
   <dependencies>
   	<dependency>
   		<groupId>de.unkrig.commons</groupId>
@@ -77,8 +93,8 @@
 
               <configuration>
                 <headerType>console</headerType>
-                <outfile>target/${project.name}-${project.version}.exe</outfile>
-                <jar>target/${project.name}-${project.version}-jar-with-dependencies.jar</jar>
+                <outfile>target/${project.artifactId}-${project.version}.exe</outfile>
+                <jar>target/${project.artifactId}-${project.version}-jar-with-dependencies.jar</jar>
                 <errTitle>${project.name}</errTitle>
                 <classPath>
                   <addDependencies>false</addDependencies>
@@ -88,13 +104,13 @@
                 <versionInfo>
                   <fileVersion>0.0.0.0</fileVersion>
                   <txtFileVersion>${project.version}</txtFileVersion>
-                  <fileDescription>${project.name}</fileDescription>
+                  <fileDescription>${project.artifactId}</fileDescription>
                   <copyright>Copyright Arno Unkrig 2018. All rights reserved.</copyright>
                   <productVersion>0.0.0.0</productVersion>
                   <txtProductVersion>${project.version}</txtProductVersion>
                   <productName>${project.name}</productName>
                   <internalName>${project.name}</internalName>
-                  <originalFilename>${project.name}-${project.version}.exe</originalFilename>
+                  <originalFilename>${project.artifactId}-${project.version}.exe</originalFilename>
                   <languageIndex>0x0409</languageIndex>
                 </versionInfo>
               </configuration>
@@ -115,7 +131,7 @@
               <configuration>
                 <artifacts>
                   <artifact>
-                    <file>target/${project.name}-${project.version}.exe</file>
+                    <file>target/${project.artifactId}-${project.version}.exe</file>
                     <type>exe</type>
                   </artifact>
                 </artifacts>
@@ -133,6 +149,22 @@
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>2.10.4</version>
           <executions>
+
+            <!-- Generate the API docs. -->
+            <execution>
+              <id>attach-javadocs</id>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+
+              <configuration>
+                <header>${project.name} ${project.version}</header>
+                <footer>${project.name} ${project.version}</footer>
+                <javadocVersion>1.8</javadocVersion>
+                <additionalparam>-Xdoclint:none</additionalparam>
+                <quiet>true</quiet>
+              </configuration>
+            </execution>
 
              <!-- Generate the command-line help doc. -->
              <execution>
@@ -209,6 +241,19 @@
               <id>sign-artifacts</id>
               <phase>verify</phase>
               <goals><goal>sign</goal></goals>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!-- Creates and attaches a JAR file containing the sources. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>2.4</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <goals><goal>jar</goal></goals>
             </execution>
           </executions>
         </plugin>
