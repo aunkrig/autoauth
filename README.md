@@ -28,7 +28,9 @@ Also, some tools get confused if they must "double-authenticate" (to the HTTP pr
 
 Now the concept of AUTOAUTH is to run an *additional* HTTP proxy that forwards all requests to the existing proxy, and silently authenticate to it (with HTTP "basic authentication"). Effectively, clients see an HTTP proxy that does *not* require proxy authentication.
 
-This is how you'd start AUTOAUTH:
+First, download the latest version of the "jar-with-dependencies.jar", or the MS WINDOWS executable (.exe) from [here](https://oss.sonatype.org/content/repositories/releases/de/unkrig/autoauth/autoauth-core/).
+
+Then you'd start AUTOAUTH like this:
 
 ```
 C:\path\to\autoauth-core-0.1.exe --endpoint-port 999 --target-address proxy.acme.de --target-port 8080
