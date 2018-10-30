@@ -23,6 +23,7 @@
   	<maven.compiler.source>1.8</maven.compiler.source>
   	<maven.compiler.target>1.8</maven.compiler.target>
   	<jar-with-dependencies.mainClass>de.unkrig.autoauth.core.Main</jar-with-dependencies.mainClass>
+  	<jar-with-dependencies.mainClass2>de/unkrig/autoauth/core/Main</jar-with-dependencies.mainClass2>
   	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -99,6 +100,101 @@
               </configuration>
             </execution>
           </executions>
+        </plugin>
+
+        <!-- Attaches the MS WINDOWS executable artifact (so that it is INSTALLed and DEPLOYed). -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>1.12</version>
+          <executions>
+            <execution>
+              <id>attach-artifacts</id>
+              <phase>package</phase>
+              <goals><goal>attach-artifact</goal></goals>
+              <configuration>
+                <artifacts>
+                  <artifact>
+                    <file>target/${project.name}-${project.version}.exe</file>
+                    <type>exe</type>
+                  </artifact>
+                </artifacts>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!--
+          Creates a JAR file containing the API documentation (javadoc) and an HTML help document for the
+          command line tool (MAINDOC).
+        -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>2.10.4</version>
+          <executions>
+
+             <!-- Generate the command-line help doc. -->
+             <execution>
+
+               <id>make-maindoc</id>
+               <phase>compile</phase>
+               <goals><goal>javadoc</goal></goals>
+
+               <configuration>
+                 <useStandardDocletOptions>false</useStandardDocletOptions>
+                 <additionalparam>-Xdoclint:none</additionalparam>
+
+                 <quiet>true</quiet>
+
+                 <doclet>de.unkrig.doclet.main.MainDoclet</doclet>
+                 <docletArtifact>
+                   <groupId>de.unkrig</groupId>
+                   <artifactId>doclet-main</artifactId>
+                   <version>1.0.5-SNAPSHOT</version>
+                 </docletArtifact>
+
+                 <additionalparam>
+                   -charset     UTF-8
+                   -docencoding UTF-8
+                 </additionalparam>
+
+                 <destDir>../../classes</destDir>
+               </configuration>
+             </execution>
+           </executions>
+        </plugin>
+
+        <!--
+          Converts the an HTML help document into TXT format and stores it in "target/classes", so that
+          "-help" can print it.
+        -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>1.5.0</version>
+
+          <dependencies>
+            <dependency>
+              <groupId>de.unkrig</groupId>
+              <artifactId>html2txt</artifactId>
+              <version>1.0.2</version>
+            </dependency>
+          </dependencies>
+
+          <executions><execution>
+            <id>html2txt-maindoc</id>
+            <phase>compile</phase>
+            <goals><goal>java</goal></goals>
+            <configuration>
+              <includePluginDependencies>true</includePluginDependencies>
+              <mainClass>de.unkrig.html2txt.Main</mainClass>
+              <arguments>
+                <argument>${basedir}/target/classes/${jar-with-dependencies.mainClass2}.main(String[]).html</argument>
+                <argument>${basedir}/target/classes/${jar-with-dependencies.mainClass2}.main(String[]).txt</argument>
+              </arguments>
+            </configuration>
+          </execution></executions>
         </plugin>
       </plugins>
   </build>
