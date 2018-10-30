@@ -15,6 +15,7 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import de.unkrig.commons.io.IoUtil;
 import de.unkrig.commons.lang.ThreadUtil;
 import de.unkrig.commons.lang.java6.Base64;
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
@@ -40,6 +41,15 @@ class Main {
 
     public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
+    /**
+     * Implements an HTTP proxy that forwards requests to another HTTP proxy.
+     *
+     * <p>
+     *   Valid command line options are:
+     * </p>
+     *
+     * {@main.commandLineOptions}
+     */
     public static void
     main(String[] args) throws IOException, Exception {
 
@@ -49,37 +59,76 @@ class Main {
         main.run();
     }
 
-    @CommandLineOption public void
-    setDebug() {
-        Logger l = Logger.getLogger("de");
-        l.setLevel(Level.FINEST);
-        l.setUseParentHandlers(false);
-        ConsoleHandler h = new ConsoleHandler();
-        h.setLevel(Level.FINEST);
-        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
-        l.addHandler(h);
-    }
-
-    @Nullable private InetAddress endpointAddress = null;
+    private InetAddress           endpointAddress = InetAddress.getLoopbackAddress();
     private int                   endpointPort    = -1;
     @Nullable private InetAddress targetAddress   = null;
     private int                   targetPort      = -1;
     private String                prompt          = "autoauth";
 
+    // ---------------------------- BEGIN COMMAND LINE OPTIONS ----------------------------
+
+    /**
+     * Prints this text.
+     */
+    @CommandLineOption public void
+    help() throws IOException {
+        IoUtil.copyResource(Main.class, "Main.main(String[]).txt", System.out, false);
+        System.exit(0);
+    }
+
+    /**
+     * The address of the interface that AUTOAUTH binds to. Binding to {@code localhost} allows only <em>local</em>
+     * processes to connect.
+     *
+     * @param address &lt;host-name-or-ip-address>
+     */
     @CommandLineOption() public void
-    setEndpointAddress(InetAddress value) { this.endpointAddress = value; }
+    setEndpointAddress(InetAddress address) { this.endpointAddress = address; }
 
+    /**
+     * The port that AUTOAUTH binds to.
+     */
     @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-    setEndpointPort(int value) { this.endpointPort = value; }
+    setEndpointPort(int portNumber) { this.endpointPort = portNumber; }
 
+    /**
+     * The address of the "real" HTTP proxy to connect to.
+     *
+     * @param address &lt;host-name-or-ip-address>
+     */
     @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-    setTargetAddress(InetAddress value) { this.targetAddress = value; }
+    setTargetAddress(InetAddress address) { this.targetAddress = address; }
 
+    /**
+     * The port of the "real" HTTP proxy to connect to.
+     */
     @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
-    setTargetPort(int value) { this.targetPort = value; }
+    setTargetPort(int portNumber) { this.targetPort = portNumber; }
 
+    /**
+     * The "realm" that is displayed in the authentication dialog.
+     */
     @CommandLineOption() public void
-    setPrompt(String value) { this.prompt = value; }
+    setPrompt(String text) { this.prompt = text; }
+
+    /**
+     * Lots of debug output will be printed to the console. By default, AUTOAUTH is complete silent unless an
+     * exception is thrown.
+     */
+    @CommandLineOption public void
+    setDebug() {
+        Logger l = Logger.getLogger("de");
+        l.setLevel(Level.FINEST);
+        l.setUseParentHandlers(false);
+
+        ConsoleHandler h = new ConsoleHandler();
+        h.setLevel(Level.FINEST);
+        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
+
+        l.addHandler(h);
+    }
+
+    // ---------------------------- END OF COMMAND LINE OPTIONS ----------------------------
 
     private void
     run() throws Exception {
