@@ -1,4 +1,8 @@
-When you're sitting behind an HTTP proxy that requires "proxy authentication", then you are prompted for credentials when you attempt to connect to a server behind the proxy (typically the entire internet). While this is not a problem when you access the web through the web browser, it is problematic for your *tools* that need to access the internet via HTTP, e.g. GIT, MAVEN or SUBVERSION.
+# AUTOAUTH
+
+### Life made easier when you're sitting behind an HTTP proxy!
+
+If you are behind an HTTP proxy that requires "proxy authentication", then you are prompted for credentials when you attempt to connect to a server behind the proxy (typically the entire internet). While this is not a problem when you access the web through the web browser, it is problematic for your *tools* that need to access the internet via HTTP, e.g. GIT, MAVEN or SUBVERSION.
 
 These tools require that you configure them for the HTTP proxy, e.g. for MAVEN you'd have to put the following in your `settings.xml` file:
 
