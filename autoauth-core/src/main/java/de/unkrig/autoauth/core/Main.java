@@ -27,7 +27,6 @@ import de.unkrig.commons.net.TcpServer.ConnectionHandler;
 import de.unkrig.commons.net.authenticator.CustomAuthenticator;
 import de.unkrig.commons.net.http.HttpClientConnectionHandler;
 import de.unkrig.commons.net.http.HttpRequest;
-import de.unkrig.commons.net.http.HttpRequest.Method;
 import de.unkrig.commons.net.http.HttpResponse;
 import de.unkrig.commons.net.http.servlett.Servlett;
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -213,6 +212,7 @@ class Main {
 
                             httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
 
+                            // Log provisional responses.
                             final Level l = Level.CONFIG;
                             if (LOGGER.isLoggable(l)) {
                                 final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
@@ -220,16 +220,34 @@ class Main {
 
                                     @Override public void
                                     consume(HttpResponse provisionalResponse) throws IOException {
-                                        LOGGER.log(l, httpRequest.getMethod() + " " + httpRequest.getUri() + " => " + provisionalResponse.getStatus());
+                                        LOGGER.log(
+                                            l,
+                                            "{0} {1} => {2}",
+                                            new Object[] {
+                                                httpRequest.getMethod(),
+                                                httpRequest.getUri(),
+                                                provisionalResponse.getStatus(),
+                                            }
+                                        );
                                         tmp.consume(provisionalResponse);
                                     }
                                 };
-                                HttpResponse response = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
-                                LOGGER.log(l, httpRequest.getMethod() + " " + httpRequest.getUri() + " => " + response.getStatus());
-                                return response;
-                            } else {
-                                return Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
                             }
+
+                            HttpResponse
+                            finalResponse = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+
+                            // Log final response.
+                            LOGGER.log(
+                                l,
+                                "{0} {1} => {2}",
+                                new Object[] {
+                                    httpRequest.getMethod(),
+                                    httpRequest.getUri(),
+                                    finalResponse.getStatus(),
+                                }
+                            );
+                            return finalResponse;
                         }
                     }
                 ).handleConnection(in, out, localSocketAddress, remoteSocketAddress, stoppable);
@@ -279,7 +297,7 @@ class Main {
             HttpResponse httpResponse = HttpResponse.read(
                 tcpClient.getInputStream(),
                 httpRequest.getHttpVersion(),
-                httpRequest.getMethod() == Method.HEAD,
+                httpRequest.getMethod(),
                 "S>> "
             );
 
