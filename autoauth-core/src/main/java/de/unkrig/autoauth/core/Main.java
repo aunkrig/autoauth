@@ -11,7 +11,6 @@ import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.SocketException;
 import java.net.URL;
-import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,12 +34,13 @@ import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.util.CommandLineOptions;
 import de.unkrig.commons.util.annotation.CommandLineOption;
 import de.unkrig.commons.util.annotation.CommandLineOption.Cardinality;
-import de.unkrig.commons.util.logging.formatter.PrintfFormatter;
+import de.unkrig.commons.util.logging.SimpleLogging;
 
 public
 class Main {
 
     public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
+    { SimpleLogging.init(); }
 
     /**
      * Implements an HTTP proxy that forwards requests to another HTTP proxy.
@@ -113,21 +113,44 @@ class Main {
     setPrompt(String text) { this.prompt = text; }
 
     /**
-     * Lots of debug output will be printed to the console. By default, AUTOAUTH is complete silent unless an
-     * exception is thrown.
+     * Don't print warnings.
      */
     @CommandLineOption public void
-    setDebug() {
-        Logger l = Logger.getLogger("de");
-        l.setLevel(Level.FINEST);
-        l.setUseParentHandlers(false);
+    noWarn() { SimpleLogging.setNoWarn(); }
 
-        ConsoleHandler h = new ConsoleHandler();
-        h.setLevel(Level.FINEST);
-        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
+//    @CommandLineOption public void
+//    normal()  { SimpleLogging.setNormal();  }
+//    @CommandLineOption public void
+//    quiet() { SimpleLogging.setQuiet(); }
 
-        l.addHandler(h);
-    }
+    /**
+     * Log request URLs and response status to STDOUT.
+     */
+    @CommandLineOption public void
+    verbose() { SimpleLogging.setVerbose(); }
+
+    /**
+     * Enable logging; repeat for more logging.
+     */
+    @CommandLineOption(cardinality = Cardinality.ANY) public void
+    debug() { SimpleLogging.setDebug(); }
+
+//    /**
+//     * Lots of debug output will be printed to the console. By default, AUTOAUTH is complete silent unless an
+//     * exception is thrown.
+//     */
+//    @CommandLineOption public void
+//    debug() {
+//        Logger l = Logger.getLogger("de");
+//        l.setLevel(Level.FINEST);
+//        l.setUseParentHandlers(false);
+//
+//        ConsoleHandler h = new ConsoleHandler();
+//        h.setLevel(Level.FINEST);
+//        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
+//
+//        l.addHandler(h);
+//    }
 
     // ---------------------------- END OF COMMAND LINE OPTIONS ----------------------------
 
@@ -190,7 +213,23 @@ class Main {
 
                             httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
 
-                            return Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                            final Level l = Level.CONFIG;
+                            if (LOGGER.isLoggable(l)) {
+                                final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
+                                sendProvisionalResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
+
+                                    @Override public void
+                                    consume(HttpResponse provisionalResponse) throws IOException {
+                                        LOGGER.log(l, httpRequest.getMethod() + " " + httpRequest.getUri() + " => " + provisionalResponse.getStatus());
+                                        tmp.consume(provisionalResponse);
+                                    }
+                                };
+                                HttpResponse response = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                                LOGGER.log(l, httpRequest.getMethod() + " " + httpRequest.getUri() + " => " + response.getStatus());
+                                return response;
+                            } else {
+                                return Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                            }
                         }
                     }
                 ).handleConnection(in, out, localSocketAddress, remoteSocketAddress, stoppable);
