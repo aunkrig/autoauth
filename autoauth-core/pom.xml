@@ -167,6 +167,10 @@
                 <javadocVersion>1.8</javadocVersion>
                 <additionalparam>-Xdoclint:none</additionalparam>
                 <quiet>true</quiet>
+                <tags>
+                  <tag><name>main.commandLineOptions</name>    <placement>X</placement>                          </tag>
+                  <tag><name>main.commandLineOptionGroup</name><placement>a</placement><head>Option group:</head></tag>
+                </tags>
               </configuration>
             </execution>
 
