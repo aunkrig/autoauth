@@ -36,7 +36,7 @@ Then you'd start AUTOAUTH like this:
 C:\path\to\autoauth-core-0.1.exe --endpoint-port 999 --target-address proxy.acme.de --target-port 8080
 ```
 
-AUTHAUTH will ask you immediately for your credentials and use them for proxy authentication until it terminates. It also offers you to store the credentials in a password-protected store in a file named `%USERPROFILE%\.customAuthenticator_credentials`.
+AUTOAUTH will ask you immediately for your credentials and use them for proxy authentication until it terminates. It also offers you to store the credentials in a password-protected store in a file named `%USERPROFILE%\.customAuthenticator_credentials`.
 
 Then you'd change your MAVEN configuration like this:
 
