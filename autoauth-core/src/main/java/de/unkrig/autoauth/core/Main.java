@@ -45,6 +45,12 @@ class Main {
      * Implements an HTTP proxy that forwards requests to another HTTP proxy.
      *
      * <p>
+     *   Usage:
+     * </p>
+     * <p>
+     *   &nbsp;&nbsp;&nbsp;{@code autoauth} [ <var>command-line-option</var> ] ...
+     * </p>
+     * <p>
      *   Valid command line options are:
      * </p>
      *
