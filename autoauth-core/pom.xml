@@ -97,6 +97,7 @@
 
               <configuration>
                 <headerType>console</headerType>
+                <icon>autoauth.ico</icon>
                 <outfile>target/${project.artifactId}-${project.version}.exe</outfile>
                 <jar>target/${project.artifactId}-${project.version}-jar-with-dependencies.jar</jar>
                 <errTitle>${project.name}</errTitle>
