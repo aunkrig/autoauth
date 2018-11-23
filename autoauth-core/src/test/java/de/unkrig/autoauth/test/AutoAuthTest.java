@@ -23,7 +23,7 @@ class AutoAuthTest {
 	testHttp() throws Exception {
 
 		URLConnection conn = (
-			new URL("http://commons.unkrig.de")
+			new URL("http://httpbin.org:80/basic-auth/user/passwd")
 			.openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress("localhost", 999)))
 		);
 
@@ -36,9 +36,8 @@ class AutoAuthTest {
 			true // closeInputStream
 		);
 
-		Assert.assertTrue(doc.contains(
-			"<tt>de.unkrig.commons</tt> is a versatile Java&#8482; library that implements many useful container and "
-			+ "utility classes"
-		));
+		doc = doc.replaceAll("\\s+", " ");
+
+		Assert.assertEquals("{ \"authenticated\": true, \"user\": \"user\" } ", doc);
 	}
 }

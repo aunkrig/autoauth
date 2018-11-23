@@ -13,6 +13,8 @@ import java.net.SocketException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import de.unkrig.commons.io.IoUtil;
 import de.unkrig.commons.lang.ExceptionUtil;
@@ -48,7 +50,7 @@ class Main {
      *   Usage:
      * </p>
      * <p>
-     *   &nbsp;&nbsp;&nbsp;{@code autoauth} [ <var>command-line-option</var> ] ...
+     *   {@code autoauth} [ <var>command-line-option</var> ] ...
      * </p>
      * <p>
      *   Valid command line options are:
@@ -65,11 +67,13 @@ class Main {
         main.run();
     }
 
-    private InetAddress           endpointAddress = InetAddress.getLoopbackAddress();
-    private int                   endpointPort    = -1;
-    @Nullable private InetAddress targetAddress   = null;
-    private int                   targetPort      = -1;
-    private String                prompt          = "autoauth";
+    private InetAddress           endpointAddress            = InetAddress.getLoopbackAddress();
+    private int                   endpointPort               = -1;
+    @Nullable private InetAddress targetAddress              = null;
+    private int                   targetPort                 = -1;
+    private String                prompt                     = "autoauth";
+    private boolean               handleProxyAuthentication  = true;
+    private boolean               handleServerAuthentication = false;
 
     // ---------------------------- BEGIN COMMAND LINE OPTIONS ----------------------------
 
@@ -112,10 +116,22 @@ class Main {
     setTargetPort(int portNumber) { this.targetPort = portNumber; }
 
     /**
-     * The "realm" that is displayed in the authentication dialog.
+     * The "realm" string that is displayed in the proxy authentication dialog.
      */
     @CommandLineOption() public void
     setPrompt(String text) { this.prompt = text; }
+
+    /**
+     * Handle 401 responses; default is to return them to the client.
+     */
+    @CommandLineOption() public void
+    setHandleServerAuthentication() { this.handleServerAuthentication = true; }
+
+    /**
+     * Don't handle 407 responses, but return them to the client.
+     */
+    @CommandLineOption() public void
+    dontHandleProxyAuthentication() { this.handleProxyAuthentication = false; }
 
     /**
      * Don't print warnings.
@@ -162,22 +178,29 @@ class Main {
     private void
     run() throws Exception {
 
+        final String[] cachedAuthorization = new String[1];
+
         final InetSocketAddress targetAddress = new InetSocketAddress(this.targetAddress, this.targetPort);
 
         Authenticator.setDefault(new CustomAuthenticator(
             CustomAuthenticator.CacheMode.USER_NAMES_AND_PASSWORDS,
             CustomAuthenticator.StoreMode.USER_NAMES_AND_PASSWORDS
         ));
-        String proxyAuthorization = basicCredentials(Authenticator.requestPasswordAuthentication(
-            targetAddress.getHostName(),      // host
-            targetAddress.getAddress(),       // addr
-            targetAddress.getPort(),          // port
-            "http",                           // protocol
-            this.prompt,                      // prompt
-            "basic",                          // scheme
-            new URL("http://x"),              // url
-            RequestorType.PROXY               // reqType
-        ));
+
+        String proxyAuthorization = (
+            this.handleProxyAuthentication
+            ? basicCredentials(Authenticator.requestPasswordAuthentication(
+                targetAddress.getHostName(),      // host
+                targetAddress.getAddress(),       // addr
+                targetAddress.getPort(),          // port
+                "http",                           // protocol
+                this.prompt,                      // prompt
+                "basic",                          // scheme
+                new URL("http://x"),              // url
+                RequestorType.PROXY               // reqType
+            ))
+            : null
+        );
 
         // Create a custom ConnectionHandler, because we don't just want to process HTTP requests, but want to be
         // informed when a new connection is accepted, and then create a connection to the proxy.
@@ -202,61 +225,128 @@ class Main {
                 );
                 final TcpClient tcpClient = new TcpClient(targetAddress.getAddress(), targetAddress.getPort());
 
-                new HttpClientConnectionHandler(
-                    new Servlett() {
+                Servlett servlett = new Servlett() {
 
-                        public void
-                        close() throws IOException {
-                            ;
+                    public void
+                    close() throws IOException {
+                        ;
+                    }
+
+                    public HttpResponse
+                    handleRequest(
+                        HttpRequest                                    httpRequest,
+                        ConsumerWhichThrows<HttpResponse, IOException> sendProvisionalResponse
+                    ) throws IOException {
+
+                        if (proxyAuthorization != null) {
+                            httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
                         }
 
-                        public HttpResponse
+                        // Log provisional responses.
+                        final Level l = Level.CONFIG;
+                        if (LOGGER.isLoggable(l)) {
+                            final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
+                            sendProvisionalResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
+
+                                @Override public void
+                                consume(HttpResponse provisionalResponse) throws IOException {
+                                    LOGGER.log(
+                                        l,
+                                        "{0} {1} => {2}",
+                                        new Object[] {
+                                            httpRequest.getMethod(),
+                                            httpRequest.getUri(),
+                                            provisionalResponse.getStatus(),
+                                        }
+                                    );
+                                    tmp.consume(provisionalResponse);
+                                }
+                            };
+                        }
+
+                        HttpResponse
+                        finalResponse = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+
+                        // Log final response.
+                        LOGGER.log(
+                            l,
+                            "{0} {1} => {2}",
+                            new Object[] {
+                                httpRequest.getMethod(),
+                                httpRequest.getUri(),
+                                finalResponse.getStatus(),
+                            }
+                        );
+                        return finalResponse;
+                    }
+                };
+
+                {
+                    final Servlett delegate = servlett;
+                    servlett = new Servlett() {
+
+                        @Override public void
+                        close() throws IOException { delegate.close(); }
+
+                        @Override public HttpResponse
                         handleRequest(
-                            HttpRequest                                    httpRequest,
+                            HttpRequest                                    request,
                             ConsumerWhichThrows<HttpResponse, IOException> sendProvisionalResponse
                         ) throws IOException {
 
-                            httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
-
-                            // Log provisional responses.
-                            final Level l = Level.CONFIG;
-                            if (LOGGER.isLoggable(l)) {
-                                final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
-                                sendProvisionalResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
-
-                                    @Override public void
-                                    consume(HttpResponse provisionalResponse) throws IOException {
-                                        LOGGER.log(
-                                            l,
-                                            "{0} {1} => {2}",
-                                            new Object[] {
-                                                httpRequest.getMethod(),
-                                                httpRequest.getUri(),
-                                                provisionalResponse.getStatus(),
-                                            }
-                                        );
-                                        tmp.consume(provisionalResponse);
-                                    }
-                                };
+                            if (!Main.this.handleServerAuthentication) {
+                                return delegate.handleRequest(request, sendProvisionalResponse);
                             }
 
-                            HttpResponse
-                            finalResponse = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                            HttpResponse response = delegate.handleRequest(request, sendProvisionalResponse);
+                            if (response.getStatus() != HttpResponse.Status.UNAUTHORIZED) return response;
 
-                            // Log final response.
-                            LOGGER.log(
-                                l,
-                                "{0} {1} => {2}",
-                                new Object[] {
-                                    httpRequest.getMethod(),
-                                    httpRequest.getUri(),
-                                    finalResponse.getStatus(),
+                            for (;;) {
+
+                                String wwwAuthenticate = response.getHeader("WWW-Authenticate");
+                                Matcher m = Pattern.compile("(\\w+)(?: +realm *= *\"([^\"]*)\")?.*").matcher(wwwAuthenticate);
+                                if (!m.matches()) break;
+
+                                String scheme = m.group(1);
+                                String realm  = m.group(2);
+
+                                if (!"basic".equalsIgnoreCase(scheme)) break;
+
+                                String authorization = cachedAuthorization[0] != null ? cachedAuthorization[0] : basicCredentials(Authenticator.requestPasswordAuthentication(
+                                    request.getHeader("Host"),                         // host
+                                    InetAddress.getByName(request.getUri().getHost()), // addr
+                                    request.getUri().getPort(),                        // port
+                                    "http",                                            // protocol
+                                    realm,                                             // prompt
+                                    scheme,                                            // scheme
+                                    request.getUri().toURL(),                          // url
+                                    RequestorType.SERVER                               // reqType
+                                ));
+                                request.setHeader("Authorization", authorization);
+
+                                response = delegate.handleRequest(request, sendProvisionalResponse);
+
+                                if (response.getStatus() != HttpResponse.Status.UNAUTHORIZED) {
+                                    cachedAuthorization[0] = authorization;
+                                    break;
                                 }
-                            );
-                            return finalResponse;
+
+                                cachedAuthorization[0] = null;
+                            }
+
+                            return response;
                         }
-                    }
-                ).handleConnection(in, out, localSocketAddress, remoteSocketAddress, stoppable);
+                    };
+                }
+
+                HttpClientConnectionHandler hcch = new HttpClientConnectionHandler(servlett);
+                hcch.handleConnection(
+                    in,
+                    out,
+                    localSocketAddress,
+                    remoteSocketAddress,
+                    stoppable
+                );
             }
         };
 
