@@ -87,8 +87,10 @@ class Main {
     }
 
     /**
-     * The address of the interface that AUTOAUTH binds to. Binding to {@code localhost} allows only <em>local</em>
-     * processes to connect.
+     * The address of the interface that AUTOAUTH binds to.
+     * Default is to bind to the "loopback address" (often 127.0.0.1), which allows only <em>local</em> processes to
+     * connect.
+     * "any" binds to the "wildcard address", so clients can connect on <em>any</em> interface.
      *
      * @param address &lt;host-name-or-ip-address>
      */
