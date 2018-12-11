@@ -68,7 +68,7 @@ class Main {
     }
 
     private InetAddress           endpointAddress            = InetAddress.getLoopbackAddress();
-    private int                   endpointPort               = -1;
+    private int                   endpointPort               = 0;
     @Nullable private InetAddress targetAddress              = null;
     private int                   targetPort                 = -1;
     private String                prompt                     = "autoauth";
@@ -94,13 +94,13 @@ class Main {
      *
      * @param address &lt;host-name-or-ip-address>
      */
-    @CommandLineOption() public void
+    @CommandLineOption public void
     setEndpointAddress(InetAddress address) { this.endpointAddress = address; }
 
     /**
-     * The port that AUTOAUTH binds to.
+     * The port that AUTOAUTH binds to. "0", which is also the default, means to pick an "ephemeral port".
      */
-    @CommandLineOption(cardinality = Cardinality.MANDATORY) public void
+    @CommandLineOption public void
     setEndpointPort(int portNumber) { this.endpointPort = portNumber; }
 
     /**
@@ -120,19 +120,19 @@ class Main {
     /**
      * The "realm" string that is displayed in the proxy authentication dialog.
      */
-    @CommandLineOption() public void
+    @CommandLineOption public void
     setPrompt(String text) { this.prompt = text; }
 
     /**
      * Handle 401 responses; default is to return them to the client.
      */
-    @CommandLineOption() public void
+    @CommandLineOption public void
     setHandleServerAuthentication() { this.handleServerAuthentication = true; }
 
     /**
      * Don't handle 407 responses, but return them to the client.
      */
-    @CommandLineOption() public void
+    @CommandLineOption public void
     dontHandleProxyAuthentication() { this.handleProxyAuthentication = false; }
 
     /**
@@ -352,11 +352,15 @@ class Main {
             }
         };
 
-        new TcpServer(
+        TcpServer tcpServer = new TcpServer(
             new InetSocketAddress(this.endpointAddress, this.endpointPort), // endpoint
             0,                                                              // backlog
             cch                                                             // clientConnectionHandler
-        ).run();
+        );
+
+        LOGGER.info("Accepting HTTP requests on " + tcpServer.getEndpointAddress());
+
+        tcpServer.run();
     }
 
     /**
