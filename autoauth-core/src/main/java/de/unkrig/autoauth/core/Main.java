@@ -16,6 +16,16 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
 import de.unkrig.commons.io.IoUtil;
 import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.lang.ThreadUtil;
@@ -141,10 +151,17 @@ class Main {
     @CommandLineOption public void
     noWarn() { SimpleLogging.setNoWarn(); }
 
-//    @CommandLineOption public void
-//    normal()  { SimpleLogging.setNormal();  }
-//    @CommandLineOption public void
-//    quiet() { SimpleLogging.setQuiet(); }
+    /**
+     * Reset to default output.
+     */
+    @CommandLineOption public void
+    normal()  { SimpleLogging.setNormal();  }
+
+    /**
+     * Only print warnings and errors.
+     */
+    @CommandLineOption public void
+    quiet() { SimpleLogging.setQuiet(); }
 
     /**
      * Log request URLs and response status to STDOUT.
@@ -158,27 +175,16 @@ class Main {
     @CommandLineOption(cardinality = Cardinality.ANY) public void
     debug() { SimpleLogging.setDebug(); }
 
-//    /**
-//     * Lots of debug output will be printed to the console. By default, AUTOAUTH is complete silent unless an
-//     * exception is thrown.
-//     */
-//    @CommandLineOption public void
-//    debug() {
-//        Logger l = Logger.getLogger("de");
-//        l.setLevel(Level.FINEST);
-//        l.setUseParentHandlers(false);
-//
-//        ConsoleHandler h = new ConsoleHandler();
-//        h.setLevel(Level.FINEST);
-//        h.setFormatter(new PrintfFormatter(PrintfFormatter.FORMAT_STRING_SIMPLE));
-//
-//        l.addHandler(h);
-//    }
-
     // ---------------------------- END OF COMMAND LINE OPTIONS ----------------------------
 
     private void
     run() throws Exception {
+
+        LOGGER.log(
+            Level.INFO,
+            "AUTOAUTH {0} starting up...",
+            Main.getMavenArtifactVersionNoException("de.unkrig.autoauth", "autoauth-core")
+        );
 
         final String[] cachedAuthorization = new String[1];
 
@@ -361,6 +367,56 @@ class Main {
         LOGGER.info("Accepting HTTP requests on " + tcpServer.getEndpointAddress());
 
         tcpServer.run();
+    }
+
+    public static
+    class PomException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        public PomException(String message)  { super(message); }
+        public PomException(Throwable cause) { super(cause);   }
+    }
+
+    private static String
+    getMavenArtifactVersionNoException(String groupId, String artifactId) {
+        try {
+            return getMavenArtifactVersion(groupId, artifactId);
+        } catch (IOException | PomException | RuntimeException e) {
+            return "(" + e + ")";
+        }
+    }
+
+    /**
+     * @return              The version of the given maven artifact
+     * @throws PomException The designated artifact is not on the classpath
+     * @throws PomException The artifact's POM could not be parsed
+     * @throws PomException The artifact's version could not be determined from the POM
+     */
+    private static String
+    getMavenArtifactVersion(String groupId, String artifactId) throws IOException, PomException {
+
+        // The "maven-compiler-plugin" copies the artifact's POM into the.jar file, where we can read it, parse it,
+        // and extract the artifact's version.
+        // The "maven-assembly-plugin" copies all artifacts' POMs into the jar-with-dependencies.jar.
+        String pomXmlResourceName = "META-INF/maven/" + groupId + "/" + artifactId + "/pom.xml";
+
+        try (InputStream is = Main.class.getClassLoader().getResourceAsStream(pomXmlResourceName)) {
+            if (is == null) throw new PomException("pom.xml not found");
+
+            // Create DocumentBuilder.
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            DocumentBuilder db = dbf.newDocumentBuilder();
+
+            // Parse POM.
+            Document doc = db.parse(new InputSource(is));
+
+            // Get artifact version from "<project>...<version>x.y.z".
+            String version = XPathFactory.newInstance().newXPath().compile("/project/version").evaluate(doc).trim();
+            if (version.isEmpty()) throw new PomException("project.version missing");
+            return version;
+        } catch (ParserConfigurationException | SAXException | XPathExpressionException e) {
+            throw new AssertionError(e);
+        }
     }
 
     /**
