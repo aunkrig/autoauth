@@ -16,12 +16,15 @@
   	<url>https://github.com/aunkrig/autoauth</url>
   </scm>
   <licenses>
-    <license><url>https://github.com/aunkrig/autoauth/blob/master/LICENSE</url></license>
+    <license>
+      <name>BSD 3-Clause License</name>
+      <url>https://github.com/aunkrig/autoauth/blob/master/LICENSE</url>
+    </license>
   </licenses>
   <developers>
     <developer>
       <name>Arno Unkrig</name>
-      <organizationUrl>https://unkrig.de</organizationUrl>
+      <url>https://unkrig.de</url>
     </developer>
   </developers>
 
@@ -110,7 +113,7 @@
                   <fileVersion>0.0.0.0</fileVersion>
                   <txtFileVersion>${project.version}</txtFileVersion>
                   <fileDescription>${project.artifactId}</fileDescription>
-                  <copyright>Copyright Arno Unkrig 2018. All rights reserved.</copyright>
+                  <copyright>Copyright Arno Unkrig 2018-2019. All rights reserved.</copyright>
                   <productVersion>0.0.0.0</productVersion>
                   <txtProductVersion>${project.version}</txtProductVersion>
                   <productName>${project.name}</productName>
@@ -240,20 +243,6 @@
           </executions>
         </plugin>
 
-        <!-- Signs the artifacts with GPG (oss.sonatype.org requires that). -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-gpg-plugin</artifactId>
-          <version>1.5</version>
-          <executions>
-            <execution>
-              <id>sign-artifacts</id>
-              <phase>verify</phase>
-              <goals><goal>sign</goal></goals>
-            </execution>
-          </executions>
-        </plugin>
-
         <!-- Creates and attaches a JAR file containing the sources. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -281,4 +270,59 @@
         </plugin>
       </plugins>
   </build>
+
+
+  <profiles>
+
+<!--
+  oss.sonatype.org requires that all artifacts are signed with GPG.
+  To enable signing with GPG, modify your "settings.xml" like this:
+
+    <settings>
+  ...
+      <profiles>
+  ...
+        <profile>
+          <id>have_gpg</id>
+          <properties>
+            <gpg.executable>c:\gpg.exe</gpg.executable>
+            <gpg.useAgent>false</gpg.useAgent>
+            <gpg.keyname>me@home.com</gpg.keyname>
+            <gpg.passphrase>xxx</gpg.passphrase>
+          </properties>
+        </profile>
+      </profiles>
+  ...
+      <activeProfiles>
+  ...
+        <activeProfile>have_gpg</activeProfile>
+      </activeProfiles>
+  ...
+    </settings>
+-->
+    <profile>
+      <id>have_gpg</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <organization>
+  	<name>Arno Unkrig</name>
+  	<url>https://github.com/aunkrig/autoauth</url>
+  </organization>
 </project>
