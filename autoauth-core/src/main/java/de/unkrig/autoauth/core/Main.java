@@ -4,6 +4,8 @@ package de.unkrig.autoauth.core;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.Authenticator;
 import java.net.Authenticator.RequestorType;
 import java.net.InetAddress;
@@ -16,6 +18,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -39,6 +43,7 @@ import de.unkrig.commons.net.TcpServer.ConnectionHandler;
 import de.unkrig.commons.net.authenticator.CustomAuthenticator;
 import de.unkrig.commons.net.http.HttpClientConnectionHandler;
 import de.unkrig.commons.net.http.HttpRequest;
+import de.unkrig.commons.net.http.HttpRequest.Method;
 import de.unkrig.commons.net.http.HttpResponse;
 import de.unkrig.commons.net.http.servlett.Servlett;
 import de.unkrig.commons.nullanalysis.Nullable;
@@ -71,10 +76,141 @@ class Main {
     public static void
     main(String[] args) throws IOException, Exception {
 
-        Main main = new Main();
-        args = CommandLineOptions.parse(args, main);
+        try {
+            Main main = new Main();
+            args = CommandLineOptions.parse(args, main);
+    
+            main.run();
+        } catch (Throwable t) {
+            StringWriter sw = new StringWriter();
 
-        main.run();
+            try (PrintWriter pw = new PrintWriter(sw)) {
+                t.printStackTrace(pw);
+            }
+            
+            showErrorDialog("<html><pre>" + sw + "</pre>");
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Shows an error dialog with the given <var>message</var>. Returns only when the user clicks the "OK" button.
+     * <p>
+     *   If the message is prefixed with {@code "<html>"}, then it may contain (limited) HTML markup:
+     * </p>
+     * <p>
+     *   <b>The following HTML tags appear to work as expected:</b>
+     * </p>
+     * <dl>
+     *   <dd>{@code <a href="http://www.google.de">A link</a>} (underlined, but not clickable)</dd>
+     *   <dd>{@code <a name="myanchor" />} (not useful)</dd>
+     *   <dd>{@code <address>An address</address>}</dd>
+     *   <dd>{@code <b>Bold text</b>}</dd>
+     *   <dd>{@code <big>Bigger text</big>}</dd>
+     *   <dd>{@code <blockquote>A block quote</blockquote>}</dd>
+     *   <dd>{@code <br />}</dd>
+     *   <dd>{@code <center>Centered block</center>}</dd>
+     *   <dd>{@code <cite>A citation, italics</cite>}</dd>
+     *   <dd>{@code <code>Monospaced code</code>}</dd>
+     *   <dd>{@code <dfn>A definition, italics</dfn>}</dd>
+     *   <dd>{@code <dir><li>foo.java</li><li>bar.java</li></dir>}</dd>
+     *   <dd>{@code <div>A block</div>}</dd>
+     *   <dd>{@code <dl><dt>Definition term</dt><dd>Definition description</dd></dl>}</dd>
+     *   <dd>{@code <em>Emphasized text</em>}</dd>
+     *   <dd>{@code <font color="red" size="17">Alternate font</font>}</dd>
+     *   <dd>{@code <form>Input form</form>} (not submittable)</dd>
+     *   <dd>{@code <h1>Heading 1</h1>}</dd>
+     *   <dd>{@code <h2>Heading 2</h2>}</dd>
+     *   <dd>{@code <h3>Heading 3</h3>}</dd>
+     *   <dd>{@code <h4>Heading 4</h4>}</dd>
+     *   <dd>{@code <h5>Heading 5</h5>}</dd>
+     *   <dd>{@code <h6>Heading 6</h6>}</dd>
+     *   <dd>{@code <head><base href="xyz" /></head>} (has no effect)</dd>
+     *   <dd>{@code <head><basefont color="red" /></head>} (has no effect)</dd>
+     *   <dd>{@code <head><meta name="author" content="me" /></head>} (prints as text)</dd>
+     *   <dd>{@code <head><noscript>NOSCRIPT</noscript></head>} (prints as text)</dd>
+     *   <dd>
+     *     {@code <head><style>h1 }<code>{ </code>{@code color:red; }<code>}</code>{@code </style></head>}
+     *     (must be the first tag after "&lt;html>")
+     *   </dd>
+     *   <dd>{@code <hr>Horizontal ruler</hr>}</dd>
+     *   <dd>{@code <i>Italic text</i>}</dd>
+     *   <dd>{@code <img src="icon.png" />}</dd>
+     *   <dd>{@code <input type="text" />}</dd>
+     *   <dd>{@code <input type="checkbox" />}</dd>
+     *   <dd>{@code <input type="radio" />}</dd>
+     *   <dd>{@code <input type="reset" />} (not functional)</dd>
+     *   <dd>{@code <kbd>Keyboard input</kbd>}</dd>
+     *   <dd>{@code <map><area /></map>} (not useful)</dd>
+     *   <dd>{@code <menu><menuitem label="foo" /></menu>} (ignored)</dd>
+     *   <dd>{@code <ol><li>Ordered list item</li></ol>}</dd>
+     *   <dd>{@code <p>Paragraph</p>}</dd>
+     *   <dd>{@code <pre>Preformatted text, monospaced</pre>}</dd>
+     *   <dd>{@code <samp>Sample output, monospaced</samp>}</dd>
+     *   <dd>{@code <select><option>Selection option</option></select>}</dd>
+     *   <dd>{@code <small>Smaller text</small>}</dd>
+     *   <dd>{@code <span style="color:red">Grouped inline elements</span>}</dd>
+     *   <dd>{@code <strike>Crossed-out text</strike>}</dd>
+     *   <dd>{@code <s>Text that is no longer correkt (strikethrough)</s>}</dd>
+     *   <dd>{@code <strong>Strong text, bold</strong>}</dd>
+     *   <dd>{@code <sub>Subscript text</sub>}</dd>
+     *   <dd>{@code <sup>Superscript text</sup>}</dd>
+     *   <dd>{@code <table border=1><caption>A caption</caption><tr><th>Heading</th><td>Cell</td></tr></table>}</dd>
+     *   <dd>{@code <textarea rows="4">A multi-line text area</textarea>}</dd>
+     *   <dd>{@code <tt>Teletype text</tt>}</dd>
+     *   <dd>{@code <u>Underlined text</u>}</dd>
+     *   <dd>{@code <ul><li>li</li></ul>}</dd>
+     *   <dd>{@code <var>A variable, italics</var>}</dd>
+     * </p>
+     * <p>
+     *   <b>The following HTML tags throw exceptions and are therefore not useful:</b>
+     * </p>
+     * <dl>
+     *   <dt>{@code <applet>}</dt>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <frame>}</dt>
+     *   <dd>java.lang.RuntimeException: Can't build aframeset, BranchElement(frameset) 226,227</dd>
+     *   <dt>{@code <frameset>}</dt>
+     *   <dd>java.lang.RuntimeException: Can't build aframeset, BranchElement(frameset) 226,227</dd>
+     *   <dt>{@code <head><link rel="stylesheet" type="text/css" href="theme.css" /></head>}</dd>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <head><script>alert('Hi there!');</script></head>}</dd>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <head><title>TITLE</title></head>}</dd>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <input type="submit" />}</dt>
+     *   <dd>Exception in thread "AWT-EventQueue-0" java.lang.NullPointerException</dd>
+     *   <dt>{@code <link>}</dt>
+     *   <dd>javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <noframes>}</dt>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <script>}</dt>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     *   <dt>{@code <title>}</dt>
+     *   <dd>java.lang.ClassCastException: javax.swing.JLabel cannot be cast to javax.swing.text.JTextComponent</dd>
+     * </dl>
+     * <p>
+     *   <b>The following HTML tags create unexpected results and are therefore not useful:</b>
+     * </p>
+     * <dl>
+     *   <dt>{@code <body>body</body>}</dt>
+     *   <dd>Terminates the document</dd>
+     *   <dt>{@code <html>html</html>}</dt>
+     *   <dd>Terminates the document</dd>
+     *   <dt>{@code <isindex>isindex</isindex>}</dt>
+     *   <dd>Breaks the layout</dd>
+     *   <dt>{@code <object><param name="x" value="y" /></object>}</dt>
+     *   <dd>Displays "??"</dd>
+     * </dl>
+     */
+    private static void
+    showErrorDialog(String message) {
+        JOptionPane.showMessageDialog(
+            null,                      // parentComponent
+            new JLabel(message),       // message
+            "Error",                   // title
+            JOptionPane.ERROR_MESSAGE  // messageType
+        );
     }
 
     private InetAddress           endpointAddress            = InetAddress.getLoopbackAddress();
@@ -436,8 +572,17 @@ class Main {
             @Override public void
             run() throws IOException {
                 try {
+                    if (httpRequest.getMethod() == Method.CONNECT) {
+                        // Some clients send "CONNECT", "Content-Length: 0", which we ignore.
+                        httpRequest.removeHeader("Content-Length");
+                        httpRequest.write(tcpClient.getOutputStream(), "S<< ");
+                        LOGGER.fine("S<< CONNECT Request completely processed");
+                        tcpClient.getOutputStream().close();
+                        return;
+                    }
                     httpRequest.write(tcpClient.getOutputStream(), "S<< ");
                     tcpClient.getOutputStream().flush();
+                    LOGGER.fine("S<< Request completely processed");
                 } catch (SocketException se) {
                     LOGGER.fine("S<< " + se);
                 } catch (IOException ioe) {
