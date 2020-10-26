@@ -12,6 +12,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.SocketException;
+import java.net.URI;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,9 +48,12 @@ import de.unkrig.commons.net.http.HttpRequest.Method;
 import de.unkrig.commons.net.http.HttpResponse;
 import de.unkrig.commons.net.http.servlett.Servlett;
 import de.unkrig.commons.nullanalysis.Nullable;
+import de.unkrig.commons.text.pattern.Glob;
+import de.unkrig.commons.text.pattern.Pattern2;
 import de.unkrig.commons.util.CommandLineOptions;
 import de.unkrig.commons.util.annotation.CommandLineOption;
 import de.unkrig.commons.util.annotation.CommandLineOption.Cardinality;
+import de.unkrig.commons.util.annotation.RegexFlags;
 import de.unkrig.commons.util.logging.SimpleLogging;
 
 public
@@ -220,6 +224,7 @@ class Main {
     private String                prompt                     = "autoauth";
     private boolean               handleProxyAuthentication  = true;
     private boolean               handleServerAuthentication = false;
+    protected Glob                noProxy                    = null;
 
     // ---------------------------- BEGIN COMMAND LINE OPTIONS ----------------------------
 
@@ -280,6 +285,14 @@ class Main {
      */
     @CommandLineOption public void
     dontHandleProxyAuthentication() { this.handleProxyAuthentication = false; }
+
+    /**
+     * Connect directly (not through the target proxy) iff host (or host:port) matches the <var>glob</var>.
+     * 
+     * @param noProxy &lt;glob>
+     */
+    @CommandLineOption public void
+    setNoProxy(@RegexFlags(Pattern2.WILDCARD) Glob noProxy) { this.noProxy = noProxy; }
 
     /**
      * Don't print warnings.
@@ -386,41 +399,77 @@ class Main {
                             httpRequest.setHeader("Proxy-Authorization", proxyAuthorization);
                         }
 
-                        // Log provisional responses.
-                        final Level l = Level.CONFIG;
-                        if (LOGGER.isLoggable(l)) {
+                        TcpClient tcpClient2 = tcpClient;
+
+                        NO_PROXY:
+                        if (Main.this.noProxy != null) {
+                            URI         targetUri         = httpRequest.getUri();              // E.g. "https://user:pass@unkrig.de/index.html"
+                            String      targetHost        = targetUri.getHost();               // E.g. "unkrig.de"
+                            int         targetPort        = targetUri.getPort();               // E.g. -1
+                            InetAddress targetInetAddress = InetAddress.getByName(targetHost); // E.g. "unkrig.de/193.141.3.72"
+
+                            // targetInetAddress...
+                            // .getAddress()           => byte[4] { -63, -115, 3, 72 }
+                            // .getHostName()          => "unkrig.de"
+                            // .getHostAddress()       => "193.141.3.72"
+                            // .getCanonicalHostName() => "a08.rzone.de"
+
+                            if (targetPort == -1) targetPort = 80;
+
+                            for (String s1 : new String[] {
+                                targetInetAddress.getHostName(),
+                                targetInetAddress.getCanonicalHostName(),
+                                targetInetAddress.getHostAddress(),
+                            }) {
+                                for (String s2 : new String[] { "", ":" + targetPort }) {
+                                    if (Main.this.noProxy.matches(s1 + s2)) {
+                                        tcpClient2 = new TcpClient(targetInetAddress, targetPort);
+                                        break NO_PROXY;
+                                    }
+                                }
+                            }
+                        }
+
+                        final Level logResponseLevel = Level.CONFIG;
+                        final boolean throughTarget = tcpClient2 == tcpClient;
+                        ConsumerWhichThrows<HttpResponse, IOException>
+                        logResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
+
+                            @Override public void
+                            consume(HttpResponse response) throws IOException {
+                                LOGGER.log(
+                                    logResponseLevel,
+                                    "{0} {1} {2} {3}",
+                                    new Object[] {
+                                        httpRequest.getMethod(),
+                                        httpRequest.getUri(),
+                                        throughTarget ? "=>" : "->",
+                                        response.getStatus(),
+                                    }
+                                );
+                            }
+                        };
+
+                        // Provision logging of provisional responses.
+                        if (LOGGER.isLoggable(logResponseLevel)) {
                             final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
                             sendProvisionalResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
 
                                 @Override public void
                                 consume(HttpResponse provisionalResponse) throws IOException {
-                                    LOGGER.log(
-                                        l,
-                                        "{0} {1} => {2}",
-                                        new Object[] {
-                                            httpRequest.getMethod(),
-                                            httpRequest.getUri(),
-                                            provisionalResponse.getStatus(),
-                                        }
-                                    );
+                                    logResponse.consume(provisionalResponse);
                                     tmp.consume(provisionalResponse);
                                 }
                             };
                         }
 
+                        // Process the request.
                         HttpResponse
-                        finalResponse = Main.processRequest(tcpClient, httpRequest, sendProvisionalResponse);
+                        finalResponse = Main.processRequest(tcpClient2, httpRequest, sendProvisionalResponse);
 
-                        // Log final response.
-                        LOGGER.log(
-                            l,
-                            "{0} {1} => {2}",
-                            new Object[] {
-                                httpRequest.getMethod(),
-                                httpRequest.getUri(),
-                                finalResponse.getStatus(),
-                            }
-                        );
+                        // Log the final response.
+                        logResponse.consume(finalResponse);
+
                         return finalResponse;
                     }
                 };
