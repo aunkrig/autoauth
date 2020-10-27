@@ -62,6 +62,8 @@ class Main {
     public static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     { SimpleLogging.init(); }
 
+    private static final Level REQUEST_RESPONSE_LOG_LEVEL = Level.CONFIG;
+
     /**
      * Implements an HTTP proxy that forwards requests to another HTTP proxy.
      *
@@ -423,41 +425,63 @@ class Main {
                             }) {
                                 for (String s2 : new String[] { "", ":" + targetPort }) {
                                     if (Main.this.noProxy.matches(s1 + s2)) {
+
+                                        // This request is not forwarded through the target proxy, but the remote
+                                        // sitte is to be addressed DIRECTLY.
+
+                                        // Change target from target proxy to remote site.
                                         tcpClient2 = new TcpClient(targetInetAddress, targetPort);
+                                        
+                                        if (httpRequest.getMethod() == HttpRequest.Method.CONNECT) {
+
+                                            // CONNECT to a remote site is a very special case: Opposed to other HTTP
+                                            // methods:
+                                            //  * DO NOT send the entire request to the remote site, but only the
+                                            //    request body
+                                            //  * DO NOT receive an HTTP response from the remote site, but generate
+                                            //    a synthetic 200 response where the body is the raw data received
+                                            //    from the remote site.
+                                            InputStream  fromServer = tcpClient2.getInputStream();
+                                            OutputStream toServer   = tcpClient2.getOutputStream();
+                                            
+                                            ThreadUtil.runInBackground(
+                                                new RunnableWhichThrows<IOException>() {
+
+                                                    @Override public void
+                                                    run() throws IOException {
+
+                                                        // Send the body of the CONNECT request to the remote site.
+                                                        httpRequest.removeBody().write(toServer);
+                                                        toServer.close();
+                                                    }
+                                                },
+                                                "connect client => server"
+                                            );
+
+
+                                            // Return a 200 response to the client, where the body is the raw data
+                                            // received from the remote site.
+                                            HttpResponse response = new HttpResponse(fromServer);
+                                            this.logRequestResponse(httpRequest, response, false);
+                                            return response;
+                                        }
+                                        
                                         break NO_PROXY;
                                     }
                                 }
                             }
                         }
 
-                        final Level logResponseLevel = Level.CONFIG;
-                        final boolean throughTarget = tcpClient2 == tcpClient;
-                        ConsumerWhichThrows<HttpResponse, IOException>
-                        logResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
-
-                            @Override public void
-                            consume(HttpResponse response) throws IOException {
-                                LOGGER.log(
-                                    logResponseLevel,
-                                    "{0} {1} {2} {3}",
-                                    new Object[] {
-                                        httpRequest.getMethod(),
-                                        httpRequest.getUri(),
-                                        throughTarget ? "=>" : "->",
-                                        response.getStatus(),
-                                    }
-                                );
-                            }
-                        };
+                        final boolean throughProxy = tcpClient2 == tcpClient;
 
                         // Provision logging of provisional responses.
-                        if (LOGGER.isLoggable(logResponseLevel)) {
+                        if (LOGGER.isLoggable(Main.REQUEST_RESPONSE_LOG_LEVEL)) {
                             final ConsumerWhichThrows<HttpResponse, IOException> tmp = sendProvisionalResponse;
                             sendProvisionalResponse = new ConsumerWhichThrows<HttpResponse, IOException>() {
 
                                 @Override public void
                                 consume(HttpResponse provisionalResponse) throws IOException {
-                                    logResponse.consume(provisionalResponse);
+                                    logRequestResponse(httpRequest, provisionalResponse, throughProxy);
                                     tmp.consume(provisionalResponse);
                                 }
                             };
@@ -468,9 +492,29 @@ class Main {
                         finalResponse = Main.processRequest(tcpClient2, httpRequest, sendProvisionalResponse);
 
                         // Log the final response.
-                        logResponse.consume(finalResponse);
+                        this.logRequestResponse(httpRequest, finalResponse, throughProxy);
 
                         return finalResponse;
+                    }
+
+                    /**
+                     * Logs one request-response-pair on level {@link Main#REQUEST_RESPONSE_LOG_LEVEL}.
+                     * <pre>
+                     *   &lt;request-method> &lt;request-uri> => &lt;response-code> &lt;response-name>
+                     * </pre>
+                     */
+                    void
+                    logRequestResponse(HttpRequest request, HttpResponse response, boolean throughProxy) {
+                        LOGGER.log(
+                            Main.REQUEST_RESPONSE_LOG_LEVEL,
+                            "{0} {1} {2} {3}",
+                            new Object[] {
+                                request.getMethod(),
+                                request.getUri(),
+                                throughProxy ? "=>" : "->",
+                                response.getStatus(),
+                            }
+                        );
                     }
                 };
 
@@ -622,8 +666,10 @@ class Main {
             run() throws IOException {
                 try {
                     if (httpRequest.getMethod() == Method.CONNECT) {
+
                         // Some clients send "CONNECT", "Content-Length: 0", which we ignore.
                         httpRequest.removeHeader("Content-Length");
+
                         httpRequest.write(tcpClient.getOutputStream(), "S<< ");
                         LOGGER.fine("S<< CONNECT Request completely processed");
                         tcpClient.getOutputStream().close();
