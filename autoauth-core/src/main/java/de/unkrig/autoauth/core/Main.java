@@ -34,7 +34,6 @@ import org.xml.sax.SAXException;
 import de.unkrig.commons.io.IoUtil;
 import de.unkrig.commons.lang.ExceptionUtil;
 import de.unkrig.commons.lang.ThreadUtil;
-import de.unkrig.commons.lang.java6.Base64;
 import de.unkrig.commons.lang.protocol.ConsumerWhichThrows;
 import de.unkrig.commons.lang.protocol.RunnableWhichThrows;
 import de.unkrig.commons.lang.protocol.Stoppable;
@@ -50,6 +49,7 @@ import de.unkrig.commons.net.http.servlett.Servlett;
 import de.unkrig.commons.nullanalysis.Nullable;
 import de.unkrig.commons.text.pattern.Glob;
 import de.unkrig.commons.text.pattern.Pattern2;
+import de.unkrig.commons.util.Base64;
 import de.unkrig.commons.util.CommandLineOptions;
 import de.unkrig.commons.util.annotation.CommandLineOption;
 import de.unkrig.commons.util.annotation.CommandLineOption.Cardinality;
@@ -726,6 +726,6 @@ class Main {
         char[] password = passwordAuthentication.getPassword();
         if (userName == null || password == null) return null;
 
-        return "Basic " + Base64.encode((userName + ":" + new String(password)).getBytes());
+        return "Basic " + Base64.byteArrayToBase64((userName + ":" + new String(password)).getBytes());
     }
 }

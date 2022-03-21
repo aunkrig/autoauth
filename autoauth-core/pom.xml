@@ -32,7 +32,7 @@
   	<dependency>
   		<groupId>de.unkrig.commons</groupId>
   		<artifactId>commons-net</artifactId>
-  		<version>1.2.15-SNAPSHOT</version>
+  		<version>1.2.16-SNAPSHOT</version>
   	</dependency>
   	<dependency>
   		<groupId>junit</groupId>
