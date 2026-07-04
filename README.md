@@ -1,5 +1,8 @@
 # AUTOAUTH
 
+> [!IMPORTANT]
+> As of 2025, I have discontinued my software development activities and marked all my repositories as archived and read-only. A big thank you goes to all the contributors, who made the work a lot of fun!
+
 ### Life made easier when you're sitting behind an HTTP proxy!
 
 If you are behind an HTTP proxy that requires "proxy authentication", then you are prompted for credentials when you attempt to connect to a server behind the proxy (typically the entire internet). While this is not a problem when you access the web through the web browser, it is problematic for your *tools* that need to access the internet via HTTP, e.g. GIT, MAVEN or SUBVERSION.
